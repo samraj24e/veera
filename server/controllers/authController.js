@@ -1,9 +1,9 @@
-const { prepare } = require('../config/db');
+const { supabase } = require('../config/db');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { JWT_SECRET } = require('../middleware/auth');
 
-exports.login = (req, res) => {
+exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
 
@@ -11,8 +11,13 @@ exports.login = (req, res) => {
       return res.status(400).json({ message: 'Email and password are required.' });
     }
 
-    const admin = prepare('SELECT * FROM admins WHERE email = ?').get(email);
-    if (!admin) {
+    const { data: admin, error } = await supabase
+      .from('admins')
+      .select('*')
+      .eq('email', email)
+      .single();
+
+    if (error || !admin) {
       return res.status(401).json({ message: 'Invalid email or password.' });
     }
 

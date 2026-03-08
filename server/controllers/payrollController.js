@@ -1,22 +1,35 @@
-const { prepare } = require('../config/db');
+const { supabase } = require('../config/db');
 
 // Get all payroll records
-exports.getAllPayroll = (req, res) => {
+exports.getAllPayroll = async (req, res) => {
   try {
-    const payrolls = prepare(`
-      SELECT p.*, e.full_name, e.department, e.designation, e.company_name
-      FROM payroll p
-      JOIN employees e ON p.employee_id = e.employee_id
-      ORDER BY p.payment_date DESC
-    `).all();
-    res.json(payrolls);
+    const { data, error } = await supabase
+      .from('payroll')
+      .select(`
+        *,
+        employees (full_name, department, designation, company_name)
+      `)
+      .order('payment_date', { ascending: false });
+
+    if (error) throw error;
+
+    // Flatten the result to match previous structure
+    const flattened = data.map(p => ({
+      ...p,
+      full_name: p.employees?.full_name,
+      department: p.employees?.department,
+      designation: p.employees?.designation,
+      company_name: p.employees?.company_name
+    }));
+
+    res.json(flattened);
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
 
 // Create payroll entry
-exports.createPayroll = (req, res) => {
+exports.createPayroll = async (req, res) => {
   try {
     const { employee_id, salary, allowances, deductions, payment_date } = req.body;
 
@@ -24,8 +37,13 @@ exports.createPayroll = (req, res) => {
       return res.status(400).json({ message: 'Employee ID and payment date are required.' });
     }
 
-    const employee = prepare('SELECT * FROM employees WHERE employee_id = ?').get(employee_id);
-    if (!employee) {
+    const { data: employee, error: empErr } = await supabase
+      .from('employees')
+      .select('*')
+      .eq('employee_id', employee_id)
+      .single();
+
+    if (empErr || !employee) {
       return res.status(404).json({ message: 'Employee not found.' });
     }
 
@@ -34,12 +52,15 @@ exports.createPayroll = (req, res) => {
     const deductionAmount = parseFloat(deductions) || 0;
     const net_pay = salaryAmount + allowanceAmount - deductionAmount;
 
-    const result = prepare(`
-      INSERT INTO payroll (employee_id, salary, allowances, deductions, net_pay, payment_date)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `).run(employee_id, salaryAmount, allowanceAmount, deductionAmount, net_pay, payment_date);
+    const { data: newPayroll, error } = await supabase
+      .from('payroll')
+      .insert([
+        { employee_id, salary: salaryAmount, allowances: allowanceAmount, deductions: deductionAmount, net_pay, payment_date }
+      ])
+      .select()
+      .single();
 
-    const newPayroll = prepare('SELECT * FROM payroll WHERE id = ?').get(result.lastInsertRowid);
+    if (error) throw error;
     res.status(201).json({ message: 'Payroll created successfully', payroll: newPayroll });
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });

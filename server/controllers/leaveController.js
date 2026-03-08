@@ -1,22 +1,34 @@
-const { prepare } = require('../config/db');
+const { supabase } = require('../config/db');
 
 // Get all leaves
-exports.getAllLeaves = (req, res) => {
+exports.getAllLeaves = async (req, res) => {
   try {
-    const leaves = prepare(`
-      SELECT l.*, e.full_name, e.department, e.designation
-      FROM leaves l
-      JOIN employees e ON l.employee_id = e.employee_id
-      ORDER BY l.created_at DESC
-    `).all();
-    res.json(leaves);
+    const { data, error } = await supabase
+      .from('leaves')
+      .select(`
+        *,
+        employees (full_name, department, designation)
+      `)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    // Flattening results for frontend compatibility
+    const flattened = data.map(l => ({
+      ...l,
+      full_name: l.employees?.full_name,
+      department: l.employees?.department,
+      designation: l.employees?.designation
+    }));
+
+    res.json(flattened);
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
 
 // Create leave request
-exports.createLeave = (req, res) => {
+exports.createLeave = async (req, res) => {
   try {
     const { employee_id, leave_type, start_date, end_date } = req.body;
 
@@ -24,17 +36,25 @@ exports.createLeave = (req, res) => {
       return res.status(400).json({ message: 'All fields are required.' });
     }
 
-    const employee = prepare('SELECT * FROM employees WHERE employee_id = ?').get(employee_id);
-    if (!employee) {
+    const { data: employee, error: empErr } = await supabase
+      .from('employees')
+      .select('id')
+      .eq('employee_id', employee_id)
+      .single();
+
+    if (empErr || !employee) {
       return res.status(404).json({ message: 'Employee not found.' });
     }
 
-    const result = prepare(`
-      INSERT INTO leaves (employee_id, leave_type, start_date, end_date, status, approval_status)
-      VALUES (?, ?, ?, ?, 'Pending', 'Pending')
-    `).run(employee_id, leave_type, start_date, end_date);
+    const { data: newLeave, error } = await supabase
+      .from('leaves')
+      .insert([
+        { employee_id, leave_type, start_date, end_date, status: 'Pending', approval_status: 'Pending' }
+      ])
+      .select()
+      .single();
 
-    const newLeave = prepare('SELECT * FROM leaves WHERE id = ?').get(result.lastInsertRowid);
+    if (error) throw error;
     res.status(201).json({ message: 'Leave request created', leave: newLeave });
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });
@@ -42,16 +62,18 @@ exports.createLeave = (req, res) => {
 };
 
 // Approve leave
-exports.approveLeave = (req, res) => {
+exports.approveLeave = async (req, res) => {
   try {
-    const leave = prepare('SELECT * FROM leaves WHERE id = ?').get(parseInt(req.params.id));
-    if (!leave) {
+    const { data: updated, error } = await supabase
+      .from('leaves')
+      .update({ status: 'Approved', approval_status: 'Approved' })
+      .eq('id', parseInt(req.params.id))
+      .select()
+      .single();
+
+    if (error || !updated) {
       return res.status(404).json({ message: 'Leave not found.' });
     }
-
-    prepare("UPDATE leaves SET status = 'Approved', approval_status = 'Approved' WHERE id = ?").run(parseInt(req.params.id));
-    const updated = prepare('SELECT * FROM leaves WHERE id = ?').get(parseInt(req.params.id));
-
     res.json({ message: 'Leave approved', leave: updated });
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });
@@ -59,16 +81,18 @@ exports.approveLeave = (req, res) => {
 };
 
 // Reject leave
-exports.rejectLeave = (req, res) => {
+exports.rejectLeave = async (req, res) => {
   try {
-    const leave = prepare('SELECT * FROM leaves WHERE id = ?').get(parseInt(req.params.id));
-    if (!leave) {
+    const { data: updated, error } = await supabase
+      .from('leaves')
+      .update({ status: 'Rejected', approval_status: 'Rejected' })
+      .eq('id', parseInt(req.params.id))
+      .select()
+      .single();
+
+    if (error || !updated) {
       return res.status(404).json({ message: 'Leave not found.' });
     }
-
-    prepare("UPDATE leaves SET status = 'Rejected', approval_status = 'Rejected' WHERE id = ?").run(parseInt(req.params.id));
-    const updated = prepare('SELECT * FROM leaves WHERE id = ?').get(parseInt(req.params.id));
-
     res.json({ message: 'Leave rejected', leave: updated });
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });

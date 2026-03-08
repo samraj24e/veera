@@ -1,28 +1,28 @@
-const { prepare, saveDb } = require('../config/db');
+const { supabase } = require('../config/db');
 const { generateEmployeeId } = require('../utils/employeeIdGenerator');
 
 // Get all employees with optional search and filter
-exports.getAllEmployees = (req, res) => {
+exports.getAllEmployees = async (req, res) => {
   try {
     const { search, department, status } = req.query;
-    let query = 'SELECT * FROM employees WHERE 1=1';
-    const params = [];
+    
+    let query = supabase.from('employees').select('*');
 
     if (search) {
-      query += ' AND (full_name LIKE ? OR email LIKE ? OR employee_id LIKE ?)';
-      params.push(`%${search}%`, `%${search}%`, `%${search}%`);
+      query = query.or(`full_name.ilike.%${search}%,email.ilike.%${search}%,employee_id.ilike.%${search}%`);
     }
     if (department) {
-      query += ' AND department = ?';
-      params.push(department);
+      query = query.eq('department', department);
     }
     if (status) {
-      query += ' AND status = ?';
-      params.push(status);
+      query = query.eq('status', status);
     }
 
-    query += ' ORDER BY id DESC';
-    const employees = prepare(query).all(...params);
+    query = query.order('id', { ascending: false });
+
+    const { data: employees, error } = await query;
+    
+    if (error) throw error;
     res.json(employees);
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });
@@ -30,10 +30,15 @@ exports.getAllEmployees = (req, res) => {
 };
 
 // Get single employee
-exports.getEmployee = (req, res) => {
+exports.getEmployee = async (req, res) => {
   try {
-    const employee = prepare('SELECT * FROM employees WHERE id = ?').get(parseInt(req.params.id));
-    if (!employee) {
+    const { data: employee, error } = await supabase
+      .from('employees')
+      .select('*')
+      .eq('id', parseInt(req.params.id))
+      .single();
+
+    if (error || !employee) {
       return res.status(404).json({ message: 'Employee not found' });
     }
     res.json(employee);
@@ -43,7 +48,7 @@ exports.getEmployee = (req, res) => {
 };
 
 // Create employee
-exports.createEmployee = (req, res) => {
+exports.createEmployee = async (req, res) => {
   try {
     const {
       full_name, email, phone, company_name, department, designation,
@@ -56,27 +61,36 @@ exports.createEmployee = (req, res) => {
     }
 
     // Check duplicate email
-    const existing = prepare('SELECT id FROM employees WHERE email = ?').get(email);
+    const { data: existing, error: checkError } = await supabase
+      .from('employees')
+      .select('id')
+      .eq('email', email)
+      .maybeSingle();
+
     if (existing) {
       return res.status(400).json({ message: 'An employee with this email already exists.' });
     }
 
-    const employee_id = generateEmployeeId(company_name);
+    const employee_id = await generateEmployeeId(company_name);
     const photo = req.file ? `/uploads/${req.file.filename}` : null;
 
-    const result = prepare(`
-      INSERT INTO employees (employee_id, full_name, photo, email, phone, company_name, department,
-        designation, date_of_joining, aadhaar_number, pan_number, bank_name, ifsc_code,
-        branch_name, account_number, salary, status)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
-      employee_id, full_name, photo, email, phone || '', company_name, department || '',
-      designation || '', date_of_joining || '', aadhaar_number || '', pan_number || '',
-      bank_name || '', ifsc_code || '', branch_name || '', account_number || '',
-      parseFloat(salary) || 0, status || 'Active'
-    );
+    const { data: newEmployee, error } = await supabase
+      .from('employees')
+      .insert([
+        {
+          employee_id, full_name, photo, email, phone: phone || '', 
+          company_name, department: department || '',
+          designation: designation || '', date_of_joining: date_of_joining || '', 
+          aadhaar_number: aadhaar_number || '', pan_number: pan_number || '', 
+          bank_name: bank_name || '', ifsc_code: ifsc_code || '', 
+          branch_name: branch_name || '', account_number: account_number || '', 
+          salary: parseFloat(salary) || 0, status: status || 'Active'
+        }
+      ])
+      .select()
+      .single();
 
-    const newEmployee = prepare('SELECT * FROM employees WHERE id = ?').get(result.lastInsertRowid);
+    if (error) throw error;
     res.status(201).json({ message: 'Employee created successfully', employee: newEmployee });
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });
@@ -84,10 +98,15 @@ exports.createEmployee = (req, res) => {
 };
 
 // Update employee
-exports.updateEmployee = (req, res) => {
+exports.updateEmployee = async (req, res) => {
   try {
-    const employee = prepare('SELECT * FROM employees WHERE id = ?').get(parseInt(req.params.id));
-    if (!employee) {
+    const { data: currentEmployee, error: fetchError } = await supabase
+      .from('employees')
+      .select('*')
+      .eq('id', parseInt(req.params.id))
+      .single();
+
+    if (fetchError || !currentEmployee) {
       return res.status(404).json({ message: 'Employee not found' });
     }
 
@@ -97,42 +116,49 @@ exports.updateEmployee = (req, res) => {
       branch_name, account_number, salary, status
     } = req.body;
 
-    const photo = req.file ? `/uploads/${req.file.filename}` : employee.photo;
+    const photo = req.file ? `/uploads/${req.file.filename}` : currentEmployee.photo;
 
-    prepare(`
-      UPDATE employees SET
-        full_name = ?, photo = ?, email = ?, phone = ?, company_name = ?,
-        department = ?, designation = ?, date_of_joining = ?, aadhaar_number = ?,
-        pan_number = ?, bank_name = ?, ifsc_code = ?, branch_name = ?,
-        account_number = ?, salary = ?, status = ?, updated_at = CURRENT_TIMESTAMP
-      WHERE id = ?
-    `).run(
-      full_name || employee.full_name, photo, email || employee.email,
-      phone || employee.phone, company_name || employee.company_name,
-      department || employee.department, designation || employee.designation,
-      date_of_joining || employee.date_of_joining, aadhaar_number || employee.aadhaar_number,
-      pan_number || employee.pan_number, bank_name || employee.bank_name,
-      ifsc_code || employee.ifsc_code, branch_name || employee.branch_name,
-      account_number || employee.account_number, salary != null ? parseFloat(salary) : employee.salary,
-      status || employee.status, parseInt(req.params.id)
-    );
+    const { data: updatedEmployee, error } = await supabase
+      .from('employees')
+      .update({
+        full_name: full_name || currentEmployee.full_name, 
+        photo, 
+        email: email || currentEmployee.email,
+        phone: phone || currentEmployee.phone, 
+        company_name: company_name || currentEmployee.company_name,
+        department: department || currentEmployee.department, 
+        designation: designation || currentEmployee.designation,
+        date_of_joining: date_of_joining || currentEmployee.date_of_joining, 
+        aadhaar_number: aadhaar_number || currentEmployee.aadhaar_number,
+        pan_number: pan_number || currentEmployee.pan_number, 
+        bank_name: bank_name || currentEmployee.bank_name, 
+        ifsc_code: ifsc_code || currentEmployee.ifsc_code, 
+        branch_name: branch_name || currentEmployee.branch_name,
+        account_number: account_number || currentEmployee.account_number, 
+        salary: salary != null ? parseFloat(salary) : currentEmployee.salary,
+        status: status || currentEmployee.status, 
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', parseInt(req.params.id))
+      .select()
+      .single();
 
-    const updated = prepare('SELECT * FROM employees WHERE id = ?').get(parseInt(req.params.id));
-    res.json({ message: 'Employee updated successfully', employee: updated });
+    if (error) throw error;
+    res.json({ message: 'Employee updated successfully', employee: updatedEmployee });
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
 
 // Delete employee
-exports.deleteEmployee = (req, res) => {
+exports.deleteEmployee = async (req, res) => {
   try {
-    const employee = prepare('SELECT * FROM employees WHERE id = ?').get(parseInt(req.params.id));
-    if (!employee) {
-      return res.status(404).json({ message: 'Employee not found' });
-    }
+    const { error } = await supabase
+      .from('employees')
+      .delete()
+      .eq('id', parseInt(req.params.id));
 
-    prepare('DELETE FROM employees WHERE id = ?').run(parseInt(req.params.id));
+    if (error) throw error;
     res.json({ message: 'Employee deleted successfully' });
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });
@@ -140,15 +166,56 @@ exports.deleteEmployee = (req, res) => {
 };
 
 // Get dashboard stats
-exports.getDashboardStats = (req, res) => {
+exports.getDashboardStats = async (req, res) => {
   try {
-    const total = prepare('SELECT COUNT(*) as count FROM employees').get().count;
-    const active = prepare("SELECT COUNT(*) as count FROM employees WHERE status = 'Active'").get().count;
-    const inactive = prepare("SELECT COUNT(*) as count FROM employees WHERE status = 'Inactive'").get().count;
-    const recentEmployees = prepare('SELECT * FROM employees ORDER BY created_at DESC LIMIT 5').all();
-    const departments = prepare('SELECT department, COUNT(*) as count FROM employees WHERE department IS NOT NULL AND department != "" GROUP BY department').all();
+    const { count: total, error: totalErr } = await supabase
+      .from('employees')
+      .select('*', { count: 'exact', head: true });
 
-    res.json({ total, active, inactive, recentEmployees, departments });
+    const { count: active, error: activeErr } = await supabase
+      .from('employees')
+      .select('*', { count: 'exact', head: true })
+      .eq('status', 'Active');
+
+    const { count: inactive, error: inactiveErr } = await supabase
+      .from('employees')
+      .select('*', { count: 'exact', head: true })
+      .eq('status', 'Inactive');
+
+    const { data: recentEmployees, error: recentErr } = await supabase
+      .from('employees')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(5);
+
+    // Supabase doesn't support GROUP BY directly in the client builder
+    // We'll perform a raw RPC call or just fetch all and process since it's a dashboard card
+    // For small/medium scale, fetching and processing is fine.
+    // However, we'll try to use a specialized query if possible.
+    const { data: allDepts, error: deptErr } = await supabase
+      .from('employees')
+      .select('department');
+
+    const departmentCounts = {};
+    if (allDepts) {
+      allDepts.forEach(e => {
+        if (e.department && e.department !== '') {
+          departmentCounts[e.department] = (departmentCounts[e.department] || 0) + 1;
+        }
+      });
+    }
+    const departments = Object.keys(departmentCounts).map(dept => ({
+      department: dept,
+      count: departmentCounts[dept]
+    }));
+
+    res.json({
+      total: total || 0,
+      active: active || 0,
+      inactive: inactive || 0,
+      recentEmployees: recentEmployees || [],
+      departments
+    });
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });
   }

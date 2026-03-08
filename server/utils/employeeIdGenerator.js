@@ -1,20 +1,25 @@
-const { prepare } = require('../config/db');
+const { supabase } = require('../config/db');
 
 /**
  * Generate Employee ID based on company name.
  * Logic: Extract first letter of each word, uppercase, append 4-digit sequence.
  * Example: "Vaiso Verse Technology" → VVT0001
  */
-function generateEmployeeId(companyName) {
+async function generateEmployeeId(companyName) {
   const acronym = companyName
     .trim()
     .split(/\s+/)
     .map(word => word.charAt(0).toUpperCase())
     .join('');
 
-  const lastEmployee = prepare(
-    `SELECT employee_id FROM employees WHERE employee_id LIKE ? ORDER BY employee_id DESC LIMIT 1`
-  ).get(`${acronym}%`);
+  const { data: employees, error } = await supabase
+    .from('employees')
+    .select('employee_id')
+    .ilike('employee_id', `${acronym}%`)
+    .order('employee_id', { ascending: false })
+    .limit(1);
+
+  const lastEmployee = employees && employees[0];
 
   let nextNumber = 1;
   if (lastEmployee) {

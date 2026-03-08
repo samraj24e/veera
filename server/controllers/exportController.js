@@ -1,11 +1,16 @@
-const { prepare } = require('../config/db');
+const { supabase } = require('../config/db');
 const ExcelJS = require('exceljs');
 const PDFDocument = require('pdfkit');
 
 // Export employees as Excel
 exports.exportExcel = async (req, res) => {
   try {
-    const employees = prepare('SELECT * FROM employees ORDER BY id').all();
+    const { data: employees, error } = await supabase
+      .from('employees')
+      .select('*')
+      .order('id', { ascending: true });
+
+    if (error) throw error;
 
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet('Employees');
@@ -47,9 +52,14 @@ exports.exportExcel = async (req, res) => {
 };
 
 // Export employees as PDF
-exports.exportPDF = (req, res) => {
+exports.exportPDF = async (req, res) => {
   try {
-    const employees = prepare('SELECT * FROM employees ORDER BY id').all();
+    const { data: employees, error } = await supabase
+      .from('employees')
+      .select('*')
+      .order('id', { ascending: true });
+
+    if (error) throw error;
 
     const doc = new PDFDocument({ margin: 30, size: 'A4', layout: 'landscape' });
 
