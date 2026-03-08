@@ -1,0 +1,25 @@
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.env
+
+# Build outputs
+dist/
+build/
+.next/
+
+# Databases
+*.sqlite
+*.sqlite-journal
+
+# Local config
+start.ps1
+run-app.ps1
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.DS_Store
