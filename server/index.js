@@ -36,11 +36,14 @@ app.get('/api/health', (req, res) => {
 });
 
 // Initialize DB then start server
-async function start() {
-  await getDb();
-  app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Server running on all interfaces at port ${PORT}`);
-  });
+if (process.env.NODE_ENV !== 'production') {
+  async function start() {
+    await getDb();
+    app.listen(PORT, '0.0.0.0', () => {
+      console.log(`Server running on all interfaces at port ${PORT}`);
+    });
+  }
+  start().catch(console.error);
 }
 
-start().catch(console.error);
+module.exports = app;
