@@ -1,0 +1,231 @@
+.new-login-container {
+  min-height: 100vh;
+  display: flex;
+  background-color: #f4f6fc;
+  position: relative;
+  overflow: hidden;
+  font-family: 'Inter', sans-serif;
+}
+
+.new-login-curve {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: auto;
+  z-index: 0;
+}
+
+.new-login-curve svg {
+  width: 100%;
+  height: 250px;
+  display: block;
+}
+
+.new-login-content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  width: 100%;
+  max-width: 1440px;
+  margin: 0 auto;
+}
+
+.new-login-left {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 40px;
+}
+
+.new-login-logo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: white;
+  margin-bottom: auto;
+}
+
+.logo-vaiso {
+  font-weight: 800;
+  font-size: 2rem;
+  letter-spacing: 1px;
+  display: flex;
+  flex-direction: column;
+}
+
+.logo-vaiso .verse {
+  color: #fff;
+}
+
+.logo-vaiso .tech {
+  font-size: 0.9rem;
+  font-weight: 600;
+  letter-spacing: 4px;
+  color: rgba(255,255,255,0.8);
+  text-transform: uppercase;
+}
+
+.new-login-illustration {
+  margin: auto;
+  max-width: 80%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.new-login-illustration img {
+  width: 100%;
+  max-width: 500px;
+  object-fit: contain;
+}
+
+.new-login-right {
+  width: 480px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+}
+
+.new-login-card {
+  background: white;
+  border-radius: 16px;
+  padding: 40px;
+  width: 100%;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.08);
+}
+
+.new-login-card h2 {
+  color: #1a2b8a;
+  font-size: 1.8rem;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.new-login-card p {
+  color: #64748b;
+  font-size: 0.95rem;
+  margin-bottom: 32px;
+}
+
+.new-form-group {
+  margin-bottom: 20px;
+}
+
+.new-form-group label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #475569;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.new-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.new-input-icon {
+  position: absolute;
+  left: 14px;
+  color: #94a3b8;
+  font-size: 1.1rem;
+}
+
+.new-input-wrapper input {
+  width: 100%;
+  padding: 12px 14px 12px 42px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  transition: all 0.2s;
+  outline: none;
+  color: #1e293b;
+}
+
+.new-input-wrapper input:focus {
+  border-color: #3b5bdb;
+  box-shadow: 0 0 0 3px rgba(59,91,219,0.1);
+}
+
+.new-login-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+  font-size: 0.85rem;
+}
+
+.remember-me {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #64748b;
+  cursor: pointer;
+}
+
+.forgot-password {
+  color: #3b5bdb;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.new-btn-login {
+  width: 100%;
+  background: #2b4acb;
+  color: white;
+  border: none;
+  padding: 14px;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.new-btn-login:hover {
+  background: #1a2b8a;
+}
+
+.new-btn-login:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.error-banner {
+  background: #fee2e2;
+  color: #dc2626;
+  padding: 12px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+@media (max-width: 900px) {
+  .new-login-content {
+    flex-direction: column;
+  }
+  .new-login-left {
+    padding: 30px 20px;
+    align-items: center;
+    text-align: center;
+  }
+  .new-login-illustration {
+    display: none;
+  }
+  .new-login-right {
+    width: 100%;
+    padding: 20px;
+  }
+  .new-login-logo {
+    color: #1a2b8a;
+  }
+  .logo-vaiso .verse { color: #8b5cf6; }
+  .logo-vaiso .tech { color: #475569; }
+}
