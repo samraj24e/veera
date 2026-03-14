@@ -72,7 +72,28 @@ exports.createEmployee = async (req, res) => {
     }
 
     const employee_id = await generateEmployeeId(company_name);
-    const photo = req.file ? `/uploads/${req.file.filename}` : null;
+    
+    let photo = null;
+    if (req.file) {
+      const fileExt = req.file.originalname.split('.').pop();
+      const fileName = `${Date.now()}.${fileExt}`;
+      const filePath = `photos/${fileName}`;
+
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('profiles')
+        .upload(filePath, req.file.buffer, {
+          contentType: req.file.mimetype,
+          upsert: true
+        });
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('profiles')
+        .getPublicUrl(filePath);
+      
+      photo = publicUrl;
+    }
 
     const { data: newEmployee, error } = await supabase
       .from('employees')
@@ -116,7 +137,27 @@ exports.updateEmployee = async (req, res) => {
       branch_name, account_number, salary, status
     } = req.body;
 
-    const photo = req.file ? `/uploads/${req.file.filename}` : currentEmployee.photo;
+    let photo = currentEmployee.photo;
+    if (req.file) {
+      const fileExt = req.file.originalname.split('.').pop();
+      const fileName = `${Date.now()}.${fileExt}`;
+      const filePath = `photos/${fileName}`;
+
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('profiles')
+        .upload(filePath, req.file.buffer, {
+          contentType: req.file.mimetype,
+          upsert: true
+        });
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('profiles')
+        .getPublicUrl(filePath);
+      
+      photo = publicUrl;
+    }
 
     const { data: updatedEmployee, error } = await supabase
       .from('employees')

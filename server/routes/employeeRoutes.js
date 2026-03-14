@@ -7,14 +7,7 @@ const exportController = require('../controllers/exportController');
 const { authMiddleware } = require('../middleware/auth');
 
 // Multer config for photo uploads
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, path.join(__dirname, '..', 'uploads'));
-  },
-  filename: (req, file, cb) => {
-    cb(null, `${Date.now()}-${file.originalname}`);
-  }
-});
+const storage = multer.memoryStorage();
 const upload = multer({ storage });
 
 // Employee CRUD routes

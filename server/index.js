@@ -4,12 +4,6 @@ const path = require('path');
 const fs = require('fs');
 const { getDb } = require('./config/db');
 
-// Ensure uploads directory exists
-const uploadsDir = path.join(__dirname, 'uploads');
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
-}
-
 const app = express();
 const PORT = process.env.PORT || 5000;
 
@@ -17,7 +11,6 @@ const PORT = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use('/uploads', express.static(uploadsDir));
 
 // Routes
 const authRoutes = require('./routes/authRoutes');
